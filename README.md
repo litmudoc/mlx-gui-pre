@@ -48,7 +48,9 @@
 
 ### 🎉 v1.3.0 - Optimizations core Updates and Bug Fixes (December 14 2025)
 
-Add harmony chat template support for models like oss-gpt.
+Add harmony chat template support for models like oss-gpt. Updated to latest mlx-lm, mlx-vlm, mlx-audio, mlx-whisper, mlx_embeddings, mlx_embedding_models, parakeet-mlx, transformers, and tokenizers.
+
+Basic Features of MLX-GUI like auto model loading, model management, and API are starting to be added to things like llama.cpp and others. Remember we had it first in MLX-GUI!
 
 | Package               | Old Version | New Version |
 |-----------------------|-------------|-------------|
@@ -63,6 +65,12 @@ Add harmony chat template support for models like oss-gpt.
 | parakeet-mlx          | 0.3.5       | 0.4.1       |
 | transformers          | 4.53.1      | 4.57.3      |
 | tokenizers            | 0.21.4      | 0.22.1      |
+
+## 📚 Previous Releases
+
+<details>
+<summary><strong>v1.2.4</strong>
+</summary>
 
 ### 🎉 v1.2.4 - Universal AI Ecosystem (July 22 2025)
 
@@ -104,9 +112,9 @@ Add harmony chat template support for models like oss-gpt.
 - 🔄 **Intelligent Queue System** - Handles diverse result types (lists, arrays, dicts) seamlessly
 - ⚡ **Performance Optimization** - Faster model switching and concurrent processing
 
----
+</details>
 
-## 📚 Previous Releases
+
 
 <details>
 <summary><strong>v1.2.3</strong> - Real-Time Model Status & Model Support (July 19 2025)</summary>

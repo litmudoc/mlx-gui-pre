@@ -482,6 +482,40 @@ mkdir -p "$HOOKS_DIR"
 # Path for the consolidated runtime hook
 ALL_FIXES_HOOK="$HOOKS_DIR/pyi_rth_all_fixes.py"
 
+# Extract actual package versions from UV environment for fake metadata
+echo "📋 Extracting package versions from UV environment..."
+
+# Get versions dynamically from the UV environment
+# Store in individual variables (bash 3.2 compatible - no associative arrays)
+PKG_VERSIONS=$(uv run python - <<'PY'
+import importlib.metadata
+packages = [
+    'tqdm', 'transformers', 'tokenizers', 'huggingface-hub',
+    'safetensors', 'regex', 'requests', 'packaging', 'filelock',
+    'pyyaml', 'numpy', 'certifi', 'charset-normalizer', 'idna',
+    'urllib3', 'typing-extensions', 'fsspec', 'jinja2', 'MarkupSafe'
+]
+for pkg in packages:
+    try:
+        version = importlib.metadata.version(pkg)
+        # Export as shell variables (replace - with _ for valid var names)
+        var_name = pkg.replace('-', '_').upper()
+        print(f"export PKG_{var_name}='{version}'")
+    except Exception:
+        pass
+PY
+)
+
+# Evaluate the export statements
+eval "$PKG_VERSIONS"
+
+# Display extracted versions
+echo "   📦 tqdm: ${PKG_TQDM:-unknown}"
+echo "   📦 transformers: ${PKG_TRANSFORMERS:-unknown}"
+echo "   📦 tokenizers: ${PKG_TOKENIZERS:-unknown}"
+echo "   📦 huggingface-hub: ${PKG_HUGGINGFACE_HUB:-unknown}"
+echo "   📦 safetensors: ${PKG_SAFETENSORS:-unknown}"
+
 # Create the consolidated runtime hook file
 echo "Creating consolidated runtime hook: $ALL_FIXES_HOOK"
 cat > "$ALL_FIXES_HOOK" << EOL
@@ -610,34 +644,35 @@ try:
                 return []
 
         # Comprehensive fake package registry with proper version constraints
+        # Versions dynamically extracted from build environment
         fake_packages = {
-            'tqdm': ('4.67.1', ['colorama ; platform_system == "Windows"']),
-            'transformers': ('4.53.1', [
+            'tqdm': ('${PKG_TQDM:-4.67.1}', ['colorama ; platform_system == "Windows"']),
+            'transformers': ('${PKG_TRANSFORMERS:-4.57.3}', [
                 'filelock', 'huggingface-hub>=0.23.2,<1.0', 'numpy>=1.17',
                 'packaging>=20.0', 'pyyaml>=5.1', 'regex!=2019.12.17',
-                'requests', 'safetensors>=0.4.1', 'tokenizers<0.21,>=0.20'
+                'requests', 'safetensors>=0.4.1', 'tokenizers>=0.22.0,<=0.23.0'
             ]),
-            'tokenizers': ('0.21.2', []),
-            'huggingface-hub': ('0.33.2', [
+            'tokenizers': ('${PKG_TOKENIZERS:-0.22.1}', []),
+            'huggingface-hub': ('${PKG_HUGGINGFACE_HUB:-0.33.2}', [
                 'filelock', 'fsspec>=2023.5.0', 'packaging>=20.9',
                 'pyyaml>=5.1', 'requests', 'tqdm>=4.42.1', 'typing-extensions>=3.7.4.3'
             ]),
-            'safetensors': ('0.5.3', []),
-            'regex': ('2024.11.6', []),
-            'requests': ('2.32.4', ['certifi>=2017.4.17', 'charset-normalizer<4,>=2', 'idna<4,>=2.5', 'urllib3<3,>=1.21.1']),
-            'filelock': ('3.18.0', []),
-            'pyyaml': ('6.0.2', []),
-            'numpy': ('2.2.6', []),
-            'packaging': ('25.0', []),
-            'certifi': ('2024.12.14', []),
-            'charset-normalizer': ('3.4.0', []),
-            'idna': ('3.10', []),
-            'urllib3': ('2.3.0', []),
-            'typing-extensions': ('4.12.2', []),
-            'fsspec': ('2024.12.0', []),
-            'jinja2': ('3.1.2', ['MarkupSafe>=2.0']),
-            'Jinja2': ('3.1.2', ['MarkupSafe>=2.0']),
-            'MarkupSafe': ('2.1.3', [])
+            'safetensors': ('${PKG_SAFETENSORS:-0.5.3}', []),
+            'regex': ('${PKG_REGEX:-2024.11.6}', []),
+            'requests': ('${PKG_REQUESTS:-2.32.4}', ['certifi>=2017.4.17', 'charset-normalizer<4,>=2', 'idna<4,>=2.5', 'urllib3<3,>=1.21.1']),
+            'filelock': ('${PKG_FILELOCK:-3.18.0}', []),
+            'pyyaml': ('${PKG_PYYAML:-6.0.2}', []),
+            'numpy': ('${PKG_NUMPY:-2.2.6}', []),
+            'packaging': ('${PKG_PACKAGING:-25.0}', []),
+            'certifi': ('${PKG_CERTIFI:-2024.12.14}', []),
+            'charset-normalizer': ('${PKG_CHARSET_NORMALIZER:-3.4.0}', []),
+            'idna': ('${PKG_IDNA:-3.10}', []),
+            'urllib3': ('${PKG_URLLIB3:-2.3.0}', []),
+            'typing-extensions': ('${PKG_TYPING_EXTENSIONS:-4.12.2}', []),
+            'fsspec': ('${PKG_FSSPEC:-2024.12.0}', []),
+            'jinja2': ('${PKG_JINJA2:-3.1.2}', ['MarkupSafe>=2.0']),
+            'Jinja2': ('${PKG_JINJA2:-3.1.2}', ['MarkupSafe>=2.0']),
+            'MarkupSafe': ('${PKG_MARKUPSAFE:-2.1.3}', [])
         }
 
         # Store originals
