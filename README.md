@@ -46,6 +46,24 @@
 
 ## 📦 Latest Release
 
+### 🎉 v1.3.0 - Optimizations core Updates and Bug Fixes (December 14 2025)
+
+Add harmony chat template support for models like oss-gpt.
+
+| Package               | Old Version | New Version |
+|-----------------------|-------------|-------------|
+| mlx-lm                | 0.25.1      | 0.28.4      |
+| mlx (core)            | 0.28.0      | 0.30.0      |
+| mlx-metal             | 0.28.0      | 0.30.0      |
+| mlx-vlm               | 0.1.0       | 0.3.9       |
+| mlx-audio             | 0.1.0       | 0.2.6       |
+| mlx-whisper           | 0.4.0       | 0.4.3       |
+| mlx_embeddings        | 0.0.3       | 0.0.5       |
+| mlx_embedding_models  | 0.0.3       | 0.0.11      |
+| parakeet-mlx          | 0.3.5       | 0.4.1       |
+| transformers          | 4.53.1      | 4.57.3      |
+| tokenizers            | 0.21.4      | 0.22.1      |
+
 ### 🎉 v1.2.4 - Universal AI Ecosystem (July 22 2025)
 
 **From Whisper to Embeddings in One API** - 23 embedding models, 99 languages, complete audio/vision/text pipeline. Production-ready, not promises.

@@ -204,6 +204,87 @@ def _get_chat_template_from_hf(model_id: str) -> str:
     return None
 
 
+def _parse_harmony_response(text: str) -> str:
+    """
+    Parse Harmony/gpt-oss format and extract the final channel content.
+
+    The Harmony format uses channels for different output types:
+    - <|channel|>analysis<|message|>... - Internal reasoning/chain-of-thought
+    - <|channel|>commentary<|message|>... - Function calls and metadata
+    - <|channel|>final<|message|>... - The actual user-facing response
+
+    This function extracts only the final channel content for user responses.
+    """
+    import re
+
+    # Check if this is a Harmony-format response
+    if "<|channel|>" not in text:
+        return text
+
+    # Extract the final channel content
+    # Pattern: <|channel|>final<|message|>...content...
+    final_match = re.search(
+        r'<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)',
+        text,
+        re.DOTALL
+    )
+
+    if final_match:
+        result = final_match.group(1).strip()
+        logger.debug(f"Parsed Harmony response, extracted final channel: {result[:100]}...")
+        return result
+
+    # Fallback: strip all Harmony tokens and channel content
+    # This handles cases where there's no 'final' channel (e.g., only analysis)
+    # First, remove complete channel blocks: <|channel|>type<|message|>content<|end|>
+    # We want to extract just the content from any channel
+    content_parts = []
+    for match in re.finditer(r'<\|message\|>(.*?)(?:<\|end\|>|<\|start\|>|<\|channel\|>|$)', text, re.DOTALL):
+        content_parts.append(match.group(1).strip())
+
+    if content_parts:
+        cleaned = ' '.join(content_parts)
+    else:
+        # Last resort: strip all <|...|> tokens
+        cleaned = re.sub(r'<\|[^|]+\|>', ' ', text)
+        cleaned = ' '.join(cleaned.split())  # Normalize whitespace
+
+    if cleaned:
+        logger.debug(f"Harmony response had no final channel, stripped tokens: {cleaned[:100]}...")
+        return cleaned
+
+    # If we have Harmony tokens but no extractable content, return empty
+    # This is safer than returning raw Harmony format to the user
+    logger.warning("Could not extract content from Harmony response, returning empty")
+    return ""
+
+
+def _parse_harmony_stream(buffer: str) -> tuple[str, str, bool]:
+    """
+    Parse Harmony format for streaming responses.
+
+    Returns:
+        tuple: (content_to_yield, remaining_buffer, in_final_channel)
+    """
+    import re
+
+    # Check if we've entered the final channel
+    final_marker = "<|channel|>final<|message|>"
+
+    if final_marker in buffer:
+        # Split at the final channel marker
+        parts = buffer.split(final_marker, 1)
+        remaining = parts[1] if len(parts) > 1 else ""
+
+        # Strip any end markers from the content
+        content = re.sub(r'<\|end\|>.*$', '', remaining)
+
+        return content, "", True
+
+    # Still buffering, waiting for final channel
+    return "", buffer, False
+
+
 def _format_chat_prompt(messages: List[ChatMessage]) -> tuple[List[Dict[str, Any]], List[str]]:
     """Convert API ChatMessage objects to a list of dictionaries and extract image URLs."""
     chat_messages = []
@@ -853,10 +934,13 @@ def create_app() -> FastAPI:
             # Generate text with transparent queuing
             result = await queued_generate_text(model_name, prompt, config)
 
+            # Parse Harmony format if present (gpt-oss models)
+            parsed_text = _parse_harmony_response(result.text)
+
             return {
                 "model": model_name,
                 "prompt": result.prompt,
-                "text": result.text,
+                "text": parsed_text,
                 "usage": {
                     "prompt_tokens": result.prompt_tokens,
                     "completion_tokens": result.completion_tokens,
@@ -1405,8 +1489,8 @@ def create_app() -> FastAPI:
                         )
                         yield f"data: {first_chunk.model_dump_json()}\n\n"
 
-                        # Stream the complete result as chunks
-                        content = result.text if result else ""
+                        # Stream the complete result as chunks (parse Harmony format if present)
+                        content = _parse_harmony_response(result.text) if result else ""
                         chunk_size = 10  # Characters per chunk
 
                         for i in range(0, len(content), chunk_size):
@@ -1454,7 +1538,9 @@ def create_app() -> FastAPI:
                     prompt_string = await _apply_chat_template(loaded_model.mlx_wrapper.tokenizer, chat_messages, request.model)
 
                 async def generate_stream():
-                    """Generate streaming response chunks."""
+                    """Generate streaming response chunks with Harmony format support."""
+                    import re
+
                     first_chunk = ChatCompletionStreamResponse(
                         id=completion_id,
                         created=created_time,
@@ -1469,9 +1555,121 @@ def create_app() -> FastAPI:
                     )
                     yield f"data: {first_chunk.model_dump_json()}\n\n"
 
+                    # Buffer for Harmony format detection
+                    harmony_buffer = ""
+                    in_final_channel = False
+                    is_harmony_format = None  # None = unknown, True/False once detected
+                    final_marker = "<|channel|>final<|message|>"
+
                     # Stream the generation with transparent queuing
                     async for chunk in queued_generate_text_stream(request.model, prompt_string, config):
                         if chunk:
+                            # First chunk detection for Harmony format
+                            if is_harmony_format is None:
+                                harmony_buffer += chunk
+                                # Check if this looks like Harmony format
+                                if "<|channel|>" in harmony_buffer:
+                                    is_harmony_format = True
+                                    logger.debug("Detected Harmony format in stream")
+                                elif len(harmony_buffer) > 50 and "<|" not in harmony_buffer:
+                                    # Enough content without Harmony markers - not Harmony
+                                    is_harmony_format = False
+                                    # Yield the buffered content
+                                    stream_chunk = ChatCompletionStreamResponse(
+                                        id=completion_id,
+                                        created=created_time,
+                                        model=request.model,
+                                        choices=[
+                                            ChatCompletionStreamChoice(
+                                                index=0,
+                                                delta={"content": harmony_buffer},
+                                                finish_reason=None
+                                            )
+                                        ]
+                                    )
+                                    yield f"data: {stream_chunk.model_dump_json()}\n\n"
+                                    harmony_buffer = ""
+                                continue
+
+                            if is_harmony_format:
+                                harmony_buffer += chunk
+
+                                if not in_final_channel:
+                                    # Check if we've reached the final channel
+                                    if final_marker in harmony_buffer:
+                                        in_final_channel = True
+                                        # Extract content after the final marker
+                                        parts = harmony_buffer.split(final_marker, 1)
+                                        content = parts[1] if len(parts) > 1 else ""
+                                        # Strip end markers
+                                        content = re.sub(r'<\|end\|>.*$', '', content)
+                                        harmony_buffer = ""
+
+                                        if content:
+                                            stream_chunk = ChatCompletionStreamResponse(
+                                                id=completion_id,
+                                                created=created_time,
+                                                model=request.model,
+                                                choices=[
+                                                    ChatCompletionStreamChoice(
+                                                        index=0,
+                                                        delta={"content": content},
+                                                        finish_reason=None
+                                                    )
+                                                ]
+                                            )
+                                            yield f"data: {stream_chunk.model_dump_json()}\n\n"
+                                else:
+                                    # We're in the final channel, yield content (strip end markers)
+                                    content = re.sub(r'<\|end\|>.*$', '', harmony_buffer)
+                                    harmony_buffer = ""
+
+                                    if content:
+                                        stream_chunk = ChatCompletionStreamResponse(
+                                            id=completion_id,
+                                            created=created_time,
+                                            model=request.model,
+                                            choices=[
+                                                ChatCompletionStreamChoice(
+                                                    index=0,
+                                                    delta={"content": content},
+                                                    finish_reason=None
+                                                )
+                                            ]
+                                        )
+                                        yield f"data: {stream_chunk.model_dump_json()}\n\n"
+                            else:
+                                # Not Harmony format, yield directly
+                                stream_chunk = ChatCompletionStreamResponse(
+                                    id=completion_id,
+                                    created=created_time,
+                                    model=request.model,
+                                    choices=[
+                                        ChatCompletionStreamChoice(
+                                            index=0,
+                                            delta={"content": chunk},
+                                            finish_reason=None
+                                        )
+                                    ]
+                                )
+                                yield f"data: {stream_chunk.model_dump_json()}\n\n"
+
+                    # Handle any remaining buffered content
+                    if harmony_buffer:
+                        if is_harmony_format:
+                            # Parse remaining buffer for final content
+                            if final_marker in harmony_buffer:
+                                parts = harmony_buffer.split(final_marker, 1)
+                                content = parts[1] if len(parts) > 1 else ""
+                                content = re.sub(r'<\|end\|>.*$', '', content).strip()
+                            elif in_final_channel:
+                                content = re.sub(r'<\|end\|>.*$', '', harmony_buffer).strip()
+                            else:
+                                content = ""
+                        else:
+                            content = harmony_buffer
+
+                        if content:
                             stream_chunk = ChatCompletionStreamResponse(
                                 id=completion_id,
                                 created=created_time,
@@ -1479,7 +1677,7 @@ def create_app() -> FastAPI:
                                 choices=[
                                     ChatCompletionStreamChoice(
                                         index=0,
-                                        delta={"content": chunk},
+                                        delta={"content": content},
                                         finish_reason=None
                                     )
                                 ]
@@ -1532,6 +1730,9 @@ def create_app() -> FastAPI:
                         detail="Generation failed and returned no result."
                     )
 
+                # Parse Harmony format if present (gpt-oss models)
+                parsed_content = _parse_harmony_response(result.text)
+
                 response = ChatCompletionResponse(
                     id=completion_id,
                     created=created_time,
@@ -1541,7 +1742,7 @@ def create_app() -> FastAPI:
                             index=0,
                             message=ChatMessage(
                                 role="assistant",
-                                content=result.text
+                                content=parsed_content
                             ),
                             finish_reason="stop"
                         )
@@ -1619,7 +1820,7 @@ def create_app() -> FastAPI:
             # Check if model is loaded, auto-load if not
             loaded_model = model_manager.get_model_for_inference(actual_model_name)
             use_direct_whisper = False
-            
+
             if not loaded_model:
                 logger.info(f"Audio model {actual_model_name} not loaded, attempting to load...")
                 success = await model_manager.load_model_async(
@@ -1630,7 +1831,7 @@ def create_app() -> FastAPI:
                 if success:
                     # Get the loaded model
                     loaded_model = model_manager.get_model_for_inference(actual_model_name)
-                
+
                 # If loading failed or model still not available, try direct MLX-Whisper for Whisper models
                 if not loaded_model and model_record.model_type == 'whisper':
                     logger.info(f"Using direct MLX-Whisper API for {actual_model_name}")
@@ -1660,7 +1861,7 @@ def create_app() -> FastAPI:
                     # Use MLX-Whisper directly for maximum compatibility
                     import mlx_whisper
                     logger.info(f"Direct MLX-Whisper transcription for {actual_model_name}")
-                    
+
                     result = mlx_whisper.transcribe(
                         audio=temp_file_path,
                         path_or_hf_repo=model_record.path,
@@ -1668,14 +1869,14 @@ def create_app() -> FastAPI:
                         initial_prompt=prompt,
                         temperature=temperature
                     )
-                    
+
                     # Update usage count manually for direct usage
                     try:
                         model_record.increment_use_count()
                         db.commit()
                     except Exception as e:
                         logger.warning(f"Failed to update usage count for {actual_model_name}: {e}")
-                    
+
                     text_content = result.get("text", "")
                 else:
                     # Transcribe using queued audio processing

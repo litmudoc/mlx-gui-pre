@@ -990,7 +990,7 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
+    target_arch='arm64',  # Explicitly target Apple Silicon only
     codesign_identity=None,
     entitlements_file=None,
 )
@@ -1032,6 +1032,23 @@ rm -rf "$HOOKS_DIR"
 if [ -d "dist/MLX-GUI.app" ]; then
     echo "✅ App bundle built successfully!"
     echo "📍 Location: dist/MLX-GUI.app"
+
+    # Strip x86_64 slices from universal binaries to ensure pure ARM64 bundle
+    echo "🔧 Stripping x86_64 slices from universal binaries (ARM64-only build)..."
+    STRIPPED_COUNT=0
+    while IFS= read -r -d '' file; do
+        # Check if it's a universal binary with both x86_64 and arm64
+        if file "$file" 2>/dev/null | grep -q "universal binary" && \
+           lipo -info "$file" 2>/dev/null | grep -q "x86_64" && \
+           lipo -info "$file" 2>/dev/null | grep -q "arm64"; then
+            # Extract just the arm64 slice
+            if lipo -extract arm64 "$file" -output "${file}.arm64" 2>/dev/null; then
+                mv "${file}.arm64" "$file"
+                STRIPPED_COUNT=$((STRIPPED_COUNT + 1))
+            fi
+        fi
+    done < <(find "dist/MLX-GUI.app" -type f \( -name "*.dylib" -o -name "*.so" -o -perm +111 \) -print0 2>/dev/null)
+    echo "   ✅ Stripped x86_64 from $STRIPPED_COUNT universal binaries"
 
     # Fix the Info.plist to make it a menu bar app (no dock icon) - BEFORE signing
     echo "🔧 Converting to menu bar app (removing dock icon)..."
@@ -1104,6 +1121,12 @@ if [ -d "dist/MLX-GUI.app" ]; then
     echo "   - Size: $(du -sh dist/MLX-GUI.app | cut -f1)"
     echo "   - Type: TRUE STANDALONE (no Python required!)"
     echo "   - Includes: All Python runtime, MLX binaries, audio & vision support, and dependencies"
+
+    # Verify architecture
+    MAIN_ARCH=$(file "dist/MLX-GUI.app/Contents/MacOS/MLX-GUI" | grep -o "arm64\|x86_64" | head -1)
+    X86_LIBS=$(find "dist/MLX-GUI.app" -type f \( -name "*.dylib" -o -name "*.so" \) -exec sh -c 'file "$1" 2>/dev/null | grep -q "x86_64" && ! file "$1" 2>/dev/null | grep -q "arm64" && echo "$1"' _ {} \; 2>/dev/null | wc -l | tr -d ' ')
+    echo "   - Architecture: ${MAIN_ARCH:-unknown} (x86-only libs: ${X86_LIBS})"
+
     if [ -n "$CERT_NAME" ]; then
         echo "   - Code Signed: ✅ (no security warnings)"
     else
