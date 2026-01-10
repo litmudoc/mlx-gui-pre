@@ -7,9 +7,6 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
-[options]
-prerelease-mode = "allow"
-
 [[package]]
 name = "addict"
 version = "2.4.0"
@@ -2014,8 +2011,8 @@ requires-dist = [
     { name = "mlx-embedding-models", specifier = ">=0.0.11" },
     { name = "mlx-embeddings", specifier = ">=0.0.5" },
     { name = "mlx-lm", specifier = ">=0.30.2" },
-    { name = "mlx-vlm", specifier = ">=0.3.9" },
-    { name = "mlx-vlm", marker = "extra == 'vision'", specifier = ">=0.3.9" },
+    { name = "mlx-vlm", git = "https://github.com/zhutao100/mlx-vlm.git?branch=main" },
+    { name = "mlx-vlm", marker = "extra == 'vision'", git = "https://github.com/zhutao100/mlx-vlm.git?branch=main" },
     { name = "mlx-whisper", specifier = ">=0.4.3" },
     { name = "mlx-whisper", marker = "extra == 'audio'", specifier = ">=0.4.3" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.6.0" },
@@ -2090,8 +2087,8 @@ wheels = [
 
 [[package]]
 name = "mlx-vlm"
-version = "0.3.9"
-source = { registry = "https://pypi.org/simple" }
+version = "0.3.10"
+source = { git = "https://github.com/zhutao100/mlx-vlm.git?branch=main#55f4933b4c99439869ee3616baafba7f54126746" }
 dependencies = [
     { name = "datasets" },
     { name = "fastapi" },
@@ -2105,10 +2102,6 @@ dependencies = [
     { name = "tqdm" },
     { name = "transformers" },
     { name = "uvicorn" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/98/6b3c2d1317a317d0df544fe9ab0ef4f233ea85c1e4ac2fe6af7289ea1ee5/mlx_vlm-0.3.9.tar.gz", hash = "sha256:ae5050d0b1a051a29099c3a65efdbf6874bb497e8465734ac1992b6b179135b4", size = 303350, upload-time = "2025-12-03T21:48:24.199Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/76/d13985f2c42919d23d71549c92063ca749bfa6eea706fb08c14b6b5a0053/mlx_vlm-0.3.9-py3-none-any.whl", hash = "sha256:fa94a450161ae3978ca71565b5364c4ce0e86f0c1fae98a24afaa43feb121c57", size = 398621, upload-time = "2025-12-03T21:48:22.691Z" },
 ]
 
 [[package]]
