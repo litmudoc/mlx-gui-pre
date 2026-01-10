@@ -245,8 +245,8 @@ mlx-gui start --port 8000
 ### Option 3: Install from Source (with uv - Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/litmudoc/mlx-gui.git
-cd mlx-gui
+git clone https://github.com/litmudoc/mlx-gui-pre.git
+cd mlx-gui-pre
 
 # Install dependencies (10-100x faster than pip)
 uv lock --refresh --prerelease=allow
@@ -424,8 +424,8 @@ Full API documentation is available at `/v1/docs` when the server is running, or
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/litmudoc/mlx-gui.git
-cd mlx-gui
+git clone https://github.com/litmudoc/mlx-gui-pre.git
+cd mlx-gui-pre
 
 # Install in development mode with audio and vision support
 uv lock --refresh --prerelease=allow
