@@ -40,7 +40,7 @@ dependencies = [
     "appdirs>=1.4.4",
     "mlx-whisper>=0.4.3",
     "mlx-audio>=0.2.10",
-    "mlx-vlm>=0.3.9",
+    "mlx-vlm>=0.3.10",
     "mlx_embedding_models>=0.0.11",
     "mlx_embeddings>=0.0.5",
     "parakeet-mlx>=0.4.1",
@@ -85,7 +85,7 @@ audio = [
 ]
 
 vision = [
-    "mlx-vlm>=0.3.9",
+    "mlx-vlm>=0.3.10",
     "pillow>=10.0.0",
     # Ensure tokenizer stack is available for processors/AutoTokenizer
     "transformers>=4.57.3",
@@ -103,6 +103,7 @@ Issues = "https://github.com/ramborogers/mlx-gui/issues"
 
 [tool.uv.sources]
 mlx-audio = { git = "https://github.com/litmudoc/mlx-audio.git", branch = "main" }
+mlx-vlm = { git = "https://github.com/zhutao100/mlx-vlm.git", branch = "main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mlx_gui"]
