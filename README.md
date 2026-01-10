@@ -245,7 +245,7 @@ mlx-gui start --port 8000
 ### Option 3: Install from Source (with uv - Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/RamboRogers/mlx-gui.git
+git clone https://github.com/litmudoc/mlx-gui.git
 cd mlx-gui
 
 # Install dependencies (10-100x faster than pip)
