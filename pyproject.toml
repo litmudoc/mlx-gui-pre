@@ -81,7 +81,7 @@ app = [
 
 audio = [
     "mlx-whisper>=0.4.3",
-    "mlx-audio>=0.2.10-",
+    "mlx-audio>=0.2.10",
 ]
 
 vision = [
