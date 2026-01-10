@@ -424,7 +424,7 @@ Full API documentation is available at `/v1/docs` when the server is running, or
 
 ### Setup Development Environment
 ```bash
-git clone https://github.com/RamboRogers/mlx-gui.git
+git clone https://github.com/litmudoc/mlx-gui.git
 cd mlx-gui
 
 # Install in development mode with audio and vision support
