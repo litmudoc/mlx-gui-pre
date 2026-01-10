@@ -249,7 +249,8 @@ git clone https://github.com/RamboRogers/mlx-gui.git
 cd mlx-gui
 
 # Install dependencies (10-100x faster than pip)
-uv sync --extra app
+uv lock --refresh --prerelease=allow
+uv sync --extra app --prerelease=allow
 
 # Launch with system tray
 uv run mlx-gui tray
@@ -427,7 +428,8 @@ git clone https://github.com/RamboRogers/mlx-gui.git
 cd mlx-gui
 
 # Install in development mode with audio and vision support
-uv sync --extra dev --extra audio --extra vision
+uv lock --refresh --prerelease=allow
+uv sync --extra dev --extra audio --extra vision --prerelease=allow
 ```
 
 ```bash
