@@ -93,6 +93,7 @@ Comprehensive system status including memory usage and loaded models.
     "queue_size": 0,
     "total_model_memory_gb": 8.5,
     "memory_usage_percent": 26.6,
+    "max_tokens_limit": 16384,
     "auto_unload_enabled": true,
     "inactivity_timeout_minutes": 30
   },

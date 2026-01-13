@@ -1419,7 +1419,11 @@ def create_app() -> FastAPI:
             logger.error(f"🔧 After _format_chat_prompt: {len(images)} images extracted")
 
             # Enforce server-side maximum token limit
-            MAX_TOKENS_LIMIT = 16384  # 16k max
+            MAX_TOKENS_LIMIT = 16384  # 16k max default
+            max_tokens_limit = db.query(AppSettings).filter(AppSettings.key == "max_tokens_limit").first()
+            if max_tokens_limit:
+                MAX_TOKENS_LIMIT = int(max_tokens_limit.get_typed_value())
+
             if request.max_tokens > MAX_TOKENS_LIMIT:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
